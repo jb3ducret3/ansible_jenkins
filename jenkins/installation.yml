@@ -1,0 +1,66 @@
+---
+- name: Installation de Java, Jenkins et Docker
+  hosts: all
+  become: true
+  tasks:
+    - name: Installation de Java
+      apt:
+        name: openjdk-11-jre
+        state: present
+      tags: java
+
+    - name: Installation de Jenkins
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/jenkins-archive-keyring.gpg] https://pkg.jenkins.io/debian stable main"
+        state: present
+        update_cache: yes
+      tags: jenkins
+
+    - name: Téléchargement de la clé GPG de Jenkins
+      get_url:
+        url: https://pkg.jenkins.io/debian/jenkins.io.key
+        dest: /usr/share/keyrings/jenkins-archive-keyring.gpg
+      tags: jenkins
+
+    - name: Installation de Jenkins
+      apt:
+        name: jenkins
+        state: present
+      tags: jenkins
+
+    - name: Installation de Docker
+      apt:
+        name: docker.io
+        state: present
+      tags: docker
+
+    - name: Redémarrage du service Docker
+      systemd:
+        name: docker
+        state: restarted
+      tags: docker
+
+    - name: Ajout des utilisateurs au groupe Docker
+      user:
+        name: "{{ item }}"
+        groups: docker
+        append: yes
+      loop:
+        - jenkins
+        - ubuntu
+      tags: docker
+
+    - name: Attribution des permissions au socket Docker
+      file:
+        path: /var/run/docker.sock
+        mode: "0666"
+      tags: docker
+
+    - name: Lancement du conteneur SonarQube
+      docker_container:
+        name: sonar
+        image: sonarqube:lts-community
+        state: started
+        ports:
+          - "9000:9000"
+      tags: docker
